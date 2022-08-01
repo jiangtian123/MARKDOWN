@@ -31,7 +31,7 @@
    ``` C#
     var pipeline = new UniversalRenderPipeline(this);
     ```
-- 最后创建一个Renderers。
+- 最后创建Renderers。
    有多少个RendererData就创建几个Renderer，创建时调用Renderer的**InternalCreateRenderer()** 方法。
 ## 一些属性
 URP的所有全局属性都在这里了。用到的时候看一下就好。
