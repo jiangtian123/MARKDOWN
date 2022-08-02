@@ -175,3 +175,17 @@ Struct 值类型，保存了一系列的有关相机的数据。
 参数 ： ScriptableRenderContext，CameraData，bool anyPostProcessingEnabled
 > anyPostProcessingEnabled参数  
 > 如果堆栈中至少有一个摄像头启用了后处理，则为True，否则为false 
+- 首先获取相机裁剪数据**TryGetCullingParameters（）**
+- 调用ScriptableRenderer.clear（）方法
+- 根据场景还是game相机渲染UI。
+   ```C#
+   if UNITY_EDITOR
+       // Emit scene view UI
+       if (isSceneViewCamera)
+           ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
+       else
+   #endif
+       if (cameraData.camera.targetTexture != null && cameraData.cameraType != CameraType.Preview)
+      ScriptableRenderContext.EmitGeometryForCamera(camera);
+   ```
+-  
