@@ -128,7 +128,7 @@ Struct 值类型，保存了一系列的有关相机的数据。
 
 并且判断是否开启Msaa，只有相机，管线，renderer同时支持，才会开启msaa，且优先使用相机的msaa设置。
 
-最后调用**CreateRenderTextureDescriptor** 方法创建一个RenderTextureDescriptor并传给CameraData。
+最后调用**CreateRenderTextureDescriptor** 方法创建一个RenderTextureDescriptor并传给CameraData。RenderTextureDescriptor是一个纹理描述结构，用来申请纹理时，需要该结构。
 ## InitializeStackedCameraData（）
 参数：Camera，UniversalAdditionalCameraData，ref CameraData
 
