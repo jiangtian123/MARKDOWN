@@ -17,6 +17,20 @@
 4. 排序渲染队列，按照pass设定的Event进行排序
 5. SetUpLights调用ForwardLights的Setup
 6. 对排好序的渲染队列进行分块
+7. 根据每个分块调用**ExecuteBlock**。
+    - 以**BeforeRendering** 为参数调用
+    - 以**MainRenderingOpaque**， 为参数调用
+    - 以**MainRenderingTransparent**， 为参数调用
+    - 以**AfterRendering** ，为参数调用
+8. 在BeforeRendering后，URP重新设置了一下时间和全局变量
+   - worldToCameraMatrix
+   - cameraToWorldMatrix
+   - inverseViewMatrix
+   - inverseProjectionMatrix
+   - inverseViewAndProjectionMatrix
+9.  DrawWireOverlay,该方法是用来渲染线框的。而且需为ViewCamera。
+10. DrawGizmos
+11. InternalFinishRendering
 ## RendererBlocks策略
 有三个队列：
 - m_BlockEventLimits，长度为A = Const int k_RenderPassBlockCount = 4。
@@ -50,3 +64,40 @@ for (int i = 0; i < m_BlockEventLimits.Length - 1; ++i)
 }
 m_BlockRanges[currRangeIndex] = activeRenderPassQueue.Count;
 ```
+<img src= D:\MyMakrDown\ReferencePictures\Urp\RenderBlock.png />
+
+### BlockRangeLengths
+存储当前分块每个块的长度
+## ExecuteBlock
+> 参数：int blockIndex，RenderBlocks，ScriptableRenderContext，RenderingData，submit
+
+先根据 blockIndex从m_BlockRanges中取出一个块。
+
+然后遍历这个块的每个RenderPass，执行**ExecuteRenderPass** 。该方法就是按照块来执行渲染。
+## ExecuteRenderPass
+该方法为执行每个RednerPass的Configure，然后设置PassAttachments,最后执行renderpass的Execute方法。
+### SetRenderPassAttachments
+1. 获取相机ClearFlag，这个标识符，Overlay相机和SkyBox有不同的要求。
+2. 调用RenderingUtils.GetValidColorBufferCount检查该Pass拥有的ColorBuffer。如果为0则退出。
+3. 判断pass的colorAttachments是否为MRT，判断方法为，如果该PASS激活的colorAttachments大于1则为MRT。
+> MRT既是多重渲染，一个shader将不同的结果输出到多个贴图。
+#### ISMRT
+#### NotMRT
+即没有多重渲染目标的pass。
+1. 先判断有没有覆盖相机的Target。  
+     通过**overrideCameraTarget** 只要这个pass调用了**ConfigureTarget** 方法，该变量就变为True。
+2. 如果没覆盖相机的Target，则把Pass的passColorAttachment设置为相机的，depth也是。源码如下:
+   ```C#
+   if (!renderPass.overrideCameraTarget)
+    {
+        // Default render pass attachment for passes before main rendering is current active
+         // early return so we don't change current render target setup.
+        if (renderPass.renderPassEvent < RenderPassEvent.BeforeRenderingOpaques)
+            return;
+
+        // Otherwise default is the pipeline camera target.
+        passColorAttachment = m_CameraColorTarget;
+        passDepthAttachment = m_CameraDepthTarget;
+    }
+    ```
+3. 
