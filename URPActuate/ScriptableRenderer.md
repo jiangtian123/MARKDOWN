@@ -100,4 +100,27 @@ m_BlockRanges[currRangeIndex] = activeRenderPassQueue.Count;
         passDepthAttachment = m_CameraDepthTarget;
     }
     ```
-3. 
+3. 设置该PassfinalClearFlag  
+    如果passColorAttachment == m_CameraColorTarget，即没有覆盖相机的target设置，则使用相机的clear。   
+    否则用Pass自定义的设置。
+4. 设置该Pass的RenderTarget  
+    只有当以下条件满足时，才会设置。   
+    ```C#
+     if (passColorAttachment != m_ActiveColorAttachments[0] || passDepthAttachment != m_ActiveDepthAttachment || finalClearFlag != ClearFlag.None ||
+    renderPass.colorStoreActions[0] != m_ActiveColorStoreActions[0] || renderPass.depthStoreAction != m_ActiveDepthStoreAction)
+    ```
+    如果满足则调用**SetRenderTarget**。
+### SetRenderTarget
+将该Pass的Color，Depth的Attachments设置为传进来的参数，同时设置纹理load时的动作和StoreAction。
+
+这里可以参考苹果的一篇[文章](https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/MTLBestPracticesGuide/LoadandStoreActions.html#//apple_ref/doc/uid/TP40016642-CH20-SW1)。
+
+
+随后调用cmd.SetRenderTarget改变渲染目标。
+### renderPass.Execute
+最后调用每个pass的Excute方法完成渲染。
+## InternalFinishRendering
+调用每个Pass的OnFinishCameraStackRendering
+
+调用Renderer的FinishRendering，就是把相机的目标贴图换成默认的。
+然后清理激活的rendererPass。

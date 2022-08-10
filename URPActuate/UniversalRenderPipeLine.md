@@ -188,4 +188,7 @@ Struct 值类型，保存了一系列的有关相机的数据。
        if (cameraData.camera.targetTexture != null && cameraData.cameraType != CameraType.Preview)
       ScriptableRenderContext.EmitGeometryForCamera(camera);
    ```
--  
+-  InitializeRenderingData初始化rendererData
+-  调用renderer.setup
+-  renderer.Execute执行渲染
+-  结束。
