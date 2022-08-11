@@ -109,14 +109,15 @@ requiresDepthPrepass |= renderPassInputs.requiresNormalsTexture;
 Camera
 ```mermaid
 graph TD;
-CameraTaget==createColorTexture = False==>默认帧缓冲;  
+CameraTaget==createColorTexture = False==>RenderBuffer;  
 _CameraColorTexture ==applyPostProcessing = False ==>finalPass
 后处理==resolvePostProcessingToCameraTarget = false==>m_AfterPostProcessColor
 CameraTaget==createColorTexture = True==>_CameraColorTexture;
 _CameraColorTexture==applyPostProcessing =ture ==>后处理
 m_AfterPostProcessColor====>finalPass
-后处理==resolvePostProcessingToCameraTarget=True==>默认帧缓冲
-finalPass====>默认帧缓冲
+后处理==resolvePostProcessingToCameraTarget=True==>RenderBuffer
+finalPass====>RenderBuffer
+RenderBuffer====>拷贝到默认帧缓冲
 ```
 
 各个Pass还会配置自己贴图。这个会在Excute中通过setRenderStarget来改变渲染目标实现。
