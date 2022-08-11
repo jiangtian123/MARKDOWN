@@ -1,7 +1,5 @@
 # UniversalRenderPipeline
 > 该类为真正去驱动各个Pass做渲染的类，继承**RenderPipeline** ，每帧都会调用重写的Render方法。
-## CamerData
-Struct 值类型，保存了一系列的有关相机的数据。
 ## 初始化及构造函数
 - 初始化的时候会定义一些全局控制参数。如最大阴影Bias，RenderScal，AdditionalLight。
 
@@ -13,6 +11,7 @@ Struct 值类型，保存了一系列的有关相机的数据。
    5.  获取MSAA的采样数和设置MSAA
    6.  设置shader的全局名称“UniversalPipeline”，在URP管线下，tag不为空，且不是该值的，则赋予错误材质。
    7.  设置GI
+   8.  CameraCaptureBridge.enabled = true
 ## Render（）
 1. 通过**GraphicsSettings** 设置一些全局状态
      颜色空间
@@ -134,14 +133,21 @@ Struct 值类型，保存了一系列的有关相机的数据。
 
 初始化CameraData的一些参数。
 - 纹理
-   相机的渲染纹理，相机
+   相机的渲染纹理，一般为null
 - 相机类型
 - 是否为场景相机
   根据是否场景相机初始化一些volumeLayerMask数据
+- VolumeLayerMask
+- volumeTrigger
+- isStopNaNEnabled
+- isDitheringEnabled
+- antialiasing
+- antialiasingQuality
 - 是否支持HDR
 - 设置相机的视口Rect
 - RenderScale
    这个决定了由相机视图向最后的纹理视图怎么转换。
+   在[0.95,1.05]范围内，scale = 1。
 - 设置OpaqueSortFlags
 - 设置captureActions
 ## InitializeAdditionalCameraData（）
@@ -159,24 +165,54 @@ Struct 值类型，保存了一系列的有关相机的数据。
             cameraData.maxShadowDistance = (anyShadowsEnabled && cameraData.maxShadowDistance >= camera.nearClipPlane) ? cameraData.maxShadowDistance : 0.0f;
    ```
    如果主光源和任何附加光源投射阴影，则为True。
-- 根据是否为场景相机设置。
-   ``` C#
-   cameraData.renderType;
-   cameraData.clearDepth;
-   cameraData.postProcessEnabled;
-   cameraData.requiresDepthTexture;
-   cameraData.requiresOpaqueTexture;
-   cameraData.renderer;
-   ```
+- renderType
+- clearDepth
+  ```C#
+  (additionalCameraData.renderType != CameraRenderType.Base) ? additionalCameraData.clearDepth : true;
+  ```
+   BaseCamera的clearDepth为True，而Overlay的则根据自己的设置来
+- requiresDepthTexture
+  默认管线检测到是OverlayCamera会设置为False
+- requiresOpaqueTexture
+   这一项不仅由相机设置决定，如果是场景相机也会开启，后处理开启MSAA，MotionBlur，DepthOfField等后处理开启也会设置为True。
+
+   默认管线检测到是OverlayCamera会设置为False
+- renderer
+- antialiasing
+- antialiasingQuality
 - 是否支持后处理
+   如果是OpenGLES2则不支持。
+- resolveFinalTarget
+   相机是basecamera，且没有CameraStack则为True，如果是overlay且是camerastack中的最后一个也为True
 - 需要DepthRTexture |= isSceneViewCamera;
 - 如果是Overalay则禁用 OpaqueTexture 和 DepthTexture
+
+> 上诉的过程都是在初始化CameraData，操作则是将baseCameraAdditionalData的值赋给CameraData，而BaseCamera和Overlay有一些区别，具体区别看[数据类型及过程](https://github.com/jiangtian123/MARKDOWN/blob/master/URPActuate/%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E5%8F%8A%E8%BF%87%E7%A8%8B.md)。
 ## RenderSingleCamera（）
 参数 ： ScriptableRenderContext，CameraData，bool anyPostProcessingEnabled
 > anyPostProcessingEnabled参数  
 > 如果堆栈中至少有一个摄像头启用了后处理，则为True，否则为false 
 - 首先获取相机裁剪数据**TryGetCullingParameters（）**
 - 调用ScriptableRenderer.clear（）方法
+  该方法如下:
+  ```C#
+   internal void Clear(CameraRenderType cameraType)
+   {
+      m_ActiveColorAttachments[0] = BuiltinRenderTextureType.CameraTarget;
+      for (int i = 1; i < m_ActiveColorAttachments.Length; ++i)
+         m_ActiveColorAttachments[i] = 0;
+      m_ActiveDepthAttachment = BuiltinRenderTextureType.CameraTarget;
+      m_FirstTimeCameraColorTargetIsBound = cameraType == CameraRenderType.Base;
+      m_FirstTimeCameraDepthTargetIsBound = true;
+      m_CameraColorTarget = BuiltinRenderTextureType.CameraTarget;
+      m_CameraDepthTarget = BuiltinRenderTextureType.CameraTarget;
+   }
+   ```
+   主要是将颜色附件，深度附件设置为相机的Target。
+- 调用Renderer子类定义的SetupCullingParameters方法
+   主要是设置一下可见光数量和从cameraData获得最大阴影距离
+- 初始化Renderdata。调用InitializeRenderingData
+  包括灯光，阴影和后处理的开关。
 - 根据场景还是game相机渲染UI。
    ```C#
    if UNITY_EDITOR
@@ -189,6 +225,6 @@ Struct 值类型，保存了一系列的有关相机的数据。
       ScriptableRenderContext.EmitGeometryForCamera(camera);
    ```
 -  InitializeRenderingData初始化rendererData
--  调用renderer.setup
+-  调用renderer.setup，该方法由Renderer类自己实现。
 -  renderer.Execute执行渲染
 -  结束。
