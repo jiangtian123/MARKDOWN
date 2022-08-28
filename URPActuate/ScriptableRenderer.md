@@ -6,25 +6,23 @@
 ## SetUp
 > 设置各个Pass和贴图的过程。
 ### 如果相机设置了贴图且格式为Depth
-    ```C#
-        bool isOffscreenDepthTexture = cameraData.targetTexture != null && cameraData.targetTexture.format == RenderTextureFormat.Depth;
-            if (isOffscreenDepthTexture)
-            {
-                ConfigureCameraTarget(BuiltinRenderTextureType.CameraTarget, BuiltinRenderTextureType.CameraTarget);
-                AddRenderPasses(ref renderingData);
-                EnqueuePass(m_RenderOpaqueForwardPass);
-
-                // TODO: Do we need to inject transparents and skybox when rendering depth only camera? They don't write to depth.
-                EnqueuePass(m_DrawSkyboxPass);
-            #if ADAPTIVE_PERFORMANCE_2_1_0_OR_NEWER
-                if (!needTransparencyPass)
-                    return;
-            #endif
-                EnqueuePass(m_RenderTransparentForwardPass);
+```C#
+    bool isOffscreenDepthTexture = cameraData.targetTexture != null && cameraData.targetTexture.format == RenderTextureFormat.Depth;
+        if (isOffscreenDepthTexture)
+        {
+            ConfigureCameraTarget(BuiltinRenderTextureType.CameraTarget, BuiltinRenderTextureType.CameraTarget);
+            AddRenderPasses(ref renderingData);
+            EnqueuePass(m_RenderOpaqueForwardPass);
+            EnqueuePass(m_DrawSkyboxPass);
+        #if ADAPTIVE_PERFORMANCE_2_1_0_OR_NEWER
+            if (!needTransparencyPass)
                 return;
-            }
-    ```
-    上诉代码只渲染物体的深度。
+        #endif
+            EnqueuePass(m_RenderTransparentForwardPass);
+        return;
+    }
+```
+上诉代码只渲染物体的深度。
 ### 配置Color贴图
 createColorTexture很重要的一个bool变量，控制是否创建一张相机贴图。
 ```C# 
