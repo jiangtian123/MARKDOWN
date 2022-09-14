@@ -92,6 +92,8 @@ GPU中实际有多少这些单元（每个GPC有多少个SM，多少个GPC .....
 2. 经过一段时间或者显式调用flush指令后，驱动程序把Pushbuffer的内容发送给GPU，GPU通过主机接口（Host Interface）接受这些命令，并通过前端（Front End）处理这些命令。
 3. 在图元分配器(Primitive Distributor)中开始工作分配，处理indexbuffer中的顶点产生三角形分成批次(batches)，然后发送给多个PGCs。这一步的理解就是提交上来n个三角形，分配给这几个PGC同时处理。
 > 以上可以说明，一次提交的DC，GPU会将模型分成多个三角形批次分给不同的PGCS并行处理。
+
+
 <image src = https://img2018.cnblogs.com/blog/1617944/201909/1617944-20190906000842367-1857714844.png>
 
 4. 在GPC中，每个SM中的Poly Morph Engine负责通过三角形索引(triangle indices)取出三角形的数据(vertex data)，即图中的Vertex Fetch模块。
