@@ -248,3 +248,17 @@ GPU等一个FB渲染，提交指令才会交换缓冲.
 ## 最后一些作者的验证
 
 1. 处理2x2的像素块时，那些未被图元覆盖的像素着色器线程将被标记为gl_HelperThreadNV = true，它们的结果将被忽略，也不会被存储，但可辅助一些计算，如导数dFdx和dFdy
+
+# 移动端TBR和TBDR简介
+
+## 原理
+
+TBR并不是全屏直接绘制的。而是把屏幕分成一个一个的Tile,GPU一次只绘制一个Tile。绘制完毕再将绘制结果写回FrameBuffer。
+
+TBR架构的绘制过程分两个部分
+
+1. 处理所有顶点，生成一个tile list的中间数据。这个数据保存了每个图元归属哪个屏幕上的Tile。PowerVR一个Tile是32X32。
+2. 针对每个Tile执行像素处理过程，每个Tile处理完毕，将结果写回FrameBuffer。
+## 可以优化点
+1. GPU工作在内核态，我们只能通过驱动与其打交道。。所以我们应用层设置一个渲染命令或者给GPU传输数据，需要经过图形API和驱动的中转，才能最终到达GPU。而且驱动调用会有用户空间（User Space）到内核空间的转换。当DrawCall非常大的时候，这里的overhead就会很高。
+2. 当然，单纯的DrawCall命令（比如DrawPrimitive）开销也不会很大。更大的开销在于DrawCall附带的绑定数据（buffer、texture、shader），设置渲染状态的开销。在RenderDoc可以看到一个DrawCall实际上可能会有十几条命令。
