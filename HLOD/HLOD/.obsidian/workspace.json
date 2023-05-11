@@ -14,7 +14,7 @@
               "type": "markdown",
               "state": {
                 "file": "HLOD.md",
-                "mode": "preview",
+                "mode": "source",
                 "source": false
               }
             }
@@ -64,6 +64,24 @@
             "type": "leaf",
             "state": {
               "type": "starred",
+              "state": {}
+            }
+          },
+          {
+            "id": "03d3a1259d4e7bda",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "e1862227dacaacb5",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
               "state": {}
             }
           }
@@ -163,9 +181,9 @@
   },
   "active": "5842f503b1f6071c",
   "lastOpenFiles": [
-    "Excalidraw/Drawing 2023-04-26 16.43.54.excalidraw.md",
-    "HLOD.md",
     "Excalidraw/场景结构图.excalidraw.md",
+    "HLOD.md",
+    "Excalidraw/Drawing 2023-04-26 16.43.54.excalidraw.md",
     "Excalidraw/Drawing 2023-04-25 19.04.24.excalidraw.md",
     "WorkingObj.md",
     "2023-04-25.md",

@@ -66,5 +66,11 @@
 2. 合并该节点下的所有Mesh
 3. 创建一个新的材质
 ### 处理加载方式
+这里只是将所有生成的OBJ序列化了一下
 
 
+## 运行时
+### 入口 ControllerBase
+- 初始化一个SpaceManager
+- 向HLODManager中添加一个Controller（就是自己）
+- 进入到OnProcessScene中
