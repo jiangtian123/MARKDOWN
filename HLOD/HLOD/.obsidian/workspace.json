@@ -11,12 +11,8 @@
             "id": "5842f503b1f6071c",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "HLOD.md",
-                "mode": "source",
-                "source": false
-              }
+              "type": "empty",
+              "state": {}
             }
           }
         ]
@@ -85,12 +81,12 @@
               "state": {}
             }
           }
-        ]
+        ],
+        "currentTab": 3
       }
     ],
     "direction": "horizontal",
-    "width": 200,
-    "collapsed": true
+    "width": 336.5
   },
   "right": {
     "id": "fe9eb7fc6e742c3d",
@@ -106,7 +102,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "HLOD.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -123,7 +118,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "HLOD.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -145,9 +139,7 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "HLOD.md"
-              }
+              "state": {}
             }
           },
           {
@@ -179,13 +171,15 @@
       "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false
     }
   },
-  "active": "5842f503b1f6071c",
+  "active": "03d3a1259d4e7bda",
   "lastOpenFiles": [
-    "Excalidraw/场景结构图.excalidraw.md",
     "HLOD.md",
+    "2023-05-12.md",
+    "未命名",
+    "WorkingObj.md",
+    "Excalidraw/场景结构图.excalidraw.md",
     "Excalidraw/Drawing 2023-04-26 16.43.54.excalidraw.md",
     "Excalidraw/Drawing 2023-04-25 19.04.24.excalidraw.md",
-    "WorkingObj.md",
     "2023-04-25.md",
     "未命名.canvas",
     "().md",
