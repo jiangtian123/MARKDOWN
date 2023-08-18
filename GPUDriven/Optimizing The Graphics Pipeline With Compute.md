@@ -27,7 +27,7 @@
 大部分的引擎都会在CPU端做剔除，再在GPU上refine。但是因为PCIE的传输速率低，所以我们会做一些GPU上的剔除，本篇主要讲cluster/triangleculling。
 
 CS处理mesh带来的好处。最主要的思想就是把drawcall看作data，这些GPU生成的数据可以pre-built，cached，reused。
-
+## 开始
 ### Culling Overview
 
 - Scenen包括
@@ -115,11 +115,15 @@ Cluster 的大小在256是最优化的大小在PC端。可以最大化顶点重�
 
 ### HOW TO Csompact Index Buffer
 
-CPU端，将会按照最坏的情况提交渲染，因此，即使一个三角新占据的面积是0，GPU照样会执行计算。GPU端来控制绘制计数和状态变化。、
+CPU端，将会按照最坏的情况提交渲染，因此，即使一个三角新占据的面积是0，GPU照样会执行计算。当我们使用**ExecuteIndirect**命令时，将执行剔除，由GPU端来控制绘制计数和状态变化。
 
 **ExecuteIndirectDraw**这个**API**有一个可配置的计数和offest缓冲区。GPU将使用它来使渲染的命令得到精简。
 
 ![](D:\Users\Administrator\Desktop\内存测试\ExecuteIndirectDraw.jpg)
+
+> ID3D12GraphicsCommandListExecuteIndirect API讲解：
+>
+> 如果pCountBuffer为null，则该API在绘制的时候，将使用MaxCommandCount参数来作为绘制调用参数；若其不为null，则取两个中的最小值来作为参数。
 
 一个跨平台达到Compaction的做法是利用共享内存做parallel reduction算法。
 
@@ -127,6 +131,173 @@ CPU端，将会按照最坏的情况提交渲染，因此，即使一个三角�
 
 算法如下：
 
-![](D:\Users\Administrator\Desktop\内存测试\Compa.jpg)
+```C++
+groupshaed uint localValidDraws;
+[numthreads[256,1,1]]
+void main(uint3 globalID : SV_DispatchThreadID,unit3 threadID : SV_GroupThreadID)
+{
+    //如果是当前Group内的第一个线程，则localValidDraws = 0；
+    if(threadID.x == 0)
+    {
+        localValidDraws = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    MultiDrawIndirectArgs drawArgs;
+    //globalId.x 是当前线程在整个发射的线程中的位置。
+    const uint drawArgId = globalId.x;
+    //如果当前线程的ID小于总的绘制长度，则获取当前线程负责处理的instance
+    if(drawArgId < batchData[g_batchIndex].drawCount)
+    {
+        loadIndircetDrawArgs(drawArgId,drawArgs);
+    }
+    uint localSlot;
+    //这里可以理解成，当前的这个Instance通过了剔除
+    if(drawArgs.indexCount >0)
+        //让组内线程共享的localValidDraws+1
+        InterlockedAdd(localValidDraws,1,localSlot);
+    //这里强制线程同步，localValidDraws里保存的既是有多少个Instance是可以被渲染的。
+    GroupMemoryBarrierWithGroupSync();
+    uint globalSlot;
+    //如果当前线程是线程组内第一个线程,drawCountCompacted是buffer的offest，让他 += drawCountCompacted
+    //即可得出有多少个可用的Instance
+    if(threadId.x == 0)
+        InterlockedAdd(batchData[batchIndex].drawCountCompacted,localValidDraws,globalSlot);
+    GroupMemoryBarrierWithGroupSync();
+    //将可用的放到resultbuffer里。
+    if(drawArgId < drawArgCount && thisLaneActive)
+        storeIndirectDrawArgs(globalSlot+localSlot,drawArgs);
+}
+```
 
-GroupThreadID是当前线程在Group中的位置。
+使用上述算法举个例子：
+
+| 1    | 0    | 1    | 1    | 0    | 0    | 1    | 1    | 1    | 0    |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+
+这是一个有十个元素的IndexBuffer，1代表其可以被渲染，0代表其不可以被渲染，我们需要用上面的算法将可以被渲染的放到一起，减少GPU处理不可以渲染的数据的时间。
+
+准备两个线程组，每个线程组五个线程。只关注一下每个线程在三次同步后的**localSlot**，和**globalSlot**值。
+
+<img src="D:\Users\Administrator\Desktop\内存测试\esPicture.jpg" style="zoom: 80%;" />
+
+可以得到最后的结果：
+
+| 0    | 0    | 0    | 0    | 1    | 1    | 1    | 1    | 1    | 1    |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+
+将Offest值设置为4，即可得到一个连续的CountBuffer。
+
+![](D:\Users\Administrator\Desktop\内存测试\compactionPic.jpg)
+
+回顾一下刚才的算法，我们需要将结果写回一个连续的缓冲区内，做到这点仅靠ThreadId，是做不到的，所以我们做了两次同步，第一次是线程组内下标同步，第二次是全局下标同步，怎么做可以避免这么多次同步呢？
+
+### 前缀和算法
+
+实现这个算法，我们需要用到一个GPU内置变量，**Ballot**，AMD和英伟达的还不一样，AMD是64位掩码，英伟达是32位。这个的介绍可以看**介绍一些GPU内部变量**
+
+我们可以利用这个变量，将被剔除的线程的掩码为设置为0，保留的设置为1。
+
+![](D:\Users\Administrator\Desktop\内存测试\ballotexample.jpg)
+
+第一行中可以看到，在线程5之前有三个有效的线程。
+
+直接看代码吧：
+
+```C++
+groupshaed uint localValidDraws;
+[numthreads[256,1,1]]
+void main(uint3 globalID : SV_DispatchThreadID,unit3 threadID : SV_GroupThreadID)
+{
+    //当前线程在线程组内的ID
+    const uint laneID = threadId.x;
+    const uing drawArgId = globalId.x;
+    const uint drawArgCount = batchData[g_batchIndex].drawCount;
+    MultiDrawIndirectArgs drawArgs;
+    if(drawArgId<drawArgCount)
+        loadIndirectDrawArgs(drawArgId,drawArgs);
+    const bool thisLaneActive = (drawArgs.indexCount > 0);
+    uint2 clusterValidBallot = __XB_Ballot64(clusterValidBallot);
+    uint outputArgCount = __XB_SBCNT1_U64(clusterValidBallot);
+    uint localSlot = __XB_MBCNT64(clusterValidBallot);
+    uint globalSlot;
+    if(laneId == 0)
+    {
+        InterlockedAdd(batchData[batchIndex].drawCountCompacted,outputArgCount,globalSlot);
+    }
+    globalSlot = __XB_ReadLane(globalSlot,0);
+    if(drawArgId < drawArgCount && thisLaneActive)
+        storeIndirectDrawArgs(alobalSlot + localSlot,drawArgs)
+}
+```
+
+### Triangle Culling
+
+对Clusters做过粗糙剔除后，便要对三角形做更精细的剔除了。
+
+一个线程处理一个三角形，流程与之前的很相似：
+
+![](D:\Users\Administrator\Desktop\内存测试\TriangleCulling.jpg)
+
+每个thread处理一个triangle，通过的culling的会使用刚才的技巧来获得当前triangle的compact index。对于wavefront之间如果想做半透排序等，需要使用ds_ordered_count来保证wavefront之间的输出顺序。
+
+优化If分支太极限了。
+
+#### Orientation Culling 
+
+包含背面剔除和过小面积的三角形剔除
+
+![](D:\Users\Administrator\Desktop\内存测试\Orientation Culling .jpg)
+
+Tessellation patch back face cull略，没接触过。
+
+#### Small Primitive Culling
+
+对于不产生像素的三角形执行剔除。
+
+每个时钟周期内，GPU可以处理一个三角形，产生16个像素。正因为如此，小的三角形会严重影响效率。可以看到最右边的效率最低
+
+![](D:\Users\Administrator\Desktop\内存测试\raster.jpg)
+
+![](D:\Users\Administrator\Desktop\内存测试\smallTri.jpg)
+
+这个像素着色器可以可视化raster的效率，对于每个triangle会对应一个warp来处理其raster后的像素，那么每个warp中真正有效的pixel占thread的比值就可以看出是否有太多琐碎的triangle，另外也可以测试LOD的设置是否合理。
+
+![](D:\Users\Administrator\Desktop\内存测试\smallCulling.jpg)
+
+![smallCulling3](D:\Users\Administrator\Desktop\内存测试\smallCulling3.jpg)
+
+![smallPointCulling2](D:\Users\Administrator\Desktop\内存测试\smallPointCulling2.jpg)
+
+![](D:\Users\Administrator\Desktop\内存测试\smallCulling4.jpg)
+
+上面几幅图，对了各种不同情况的三角形剔除。
+
+具体做法是在屏幕空间构建一个三角形的包围盒，并将包围盒的最大值和最小值对齐到最近的像素点中心，如果最大值和最小值捕捉的水平方向和垂直方向一致，则保留。
+
+#### Frustum Culling
+
+可以在NDC空间对三角形做视锥剔除。
+
+#### Depth Culling
+
+最难的一个。
+
+![](D:\Users\Administrator\Desktop\内存测试\depthCulling.jpg)
+
+这是算法：
+
+![](D:\Users\Administrator\Desktop\内存测试\depthCullingVariant.jpg)
+
+该算法通过Z—Pre Pass 来事先生成一个16X16的 深度图，通过三角形的包围盒与深度图对比来实现剔除，只能剔除很少一部分。
+
+另一种算法就是使用HI-Z.
+
+![](D:\Users\Administrator\Desktop\内存测试\HI-ZCulling.jpg)
+
+使用软光栅进行深度测试也是可行的
+
+![](D:\Users\Administrator\Desktop\内存测试\softwareZ Culling.jpg)
+
+### Batching and Perf
+
+不看了，一些优化手段。
